@@ -57,14 +57,6 @@ def predictor(Field, F, rho, const, comm, x_p0, x_pm, x_pp):
         
         jCnt += 1
 
-        if totalMaxErr < para.FpTolerance:
-            break
-        
-        if jCnt > para.maxiteration:
-                print("ERROR: predictor not converging in", Field,". Aborting")
-                quit()
-        
-
         if rank == 0:
             req = comm.irecv(source=1)
             F[17, :, :] = req.wait()
@@ -76,6 +68,26 @@ def predictor(Field, F, rho, const, comm, x_p0, x_pm, x_pp):
             req.wait()
             req = comm.irecv(source=0)
             F[16, :, :] = req.wait()
+
+        if totalMaxErr < para.FpTolerance:
+            break
+        
+        if jCnt > para.maxiteration:
+                print("ERROR: predictor not converging in", Field,". Aborting")
+                quit()
+        
+
+        # if rank == 0:
+        #     req = comm.irecv(source=1)
+        #     F[17, :, :] = req.wait()
+        #     req = comm.isend(F[16, :, :], dest=1)
+        #     req.wait()
+        
+        # else:
+        #     req = comm.isend(F[17, :, :], dest=0)
+        #     req.wait()
+        #     req = comm.irecv(source=0)
+        #     F[16, :, :] = req.wait()
         
         # break
         if rank == 0:
@@ -87,7 +99,7 @@ def predictor(Field, F, rho, const, comm, x_p0, x_pm, x_pp):
             # print(F[17, ym1, 1])
             # print(f'rank:{rank}, {F[17:20, 1, 1]}')
 
-        # comm.Barrier()
+        comm.Barrier()
 
     return F      
 

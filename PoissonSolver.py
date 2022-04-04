@@ -4,37 +4,124 @@ import parameters as para
 import boundary as BC
 import numba
 from glob_ import *
+from mpi4py import MPI
 
 
-def Poisson_Jacobi(rho):
+def Poisson_Jacobi(rho, F, comm, x_p0, x_pm, x_pp):
     jCnt = 0
+    rank = comm.Get_rank()
+    
+
     # Pp.fill(0.0)
     while True:
 
-        Pp[x0, y0, z0] = (1.0/(-2.0*(gd.idx2 + gd.idy2 + gd.idz2))) * (rho[x0, y0, z0] -
-                                                                       gd.idx2*(Pp[xm1, y0, z0] + Pp[xp1, y0, z0]) -
-                                                                       gd.idy2*(Pp[x0, ym1, z0] + Pp[x0, yp1, z0]) -
-                                                                       gd.idz2*(Pp[x0, y0, zm1] + Pp[x0, y0, zp1]))
-        BC.imposePpBCs(Pp)
+        F[x_p0, y0, z0] = (1.0/(-2.0*(gd.idx2 + gd.idy2 + gd.idz2))) * (rho[x_p0, y0, z0] -
+                                                                       gd.idx2*(F[x_pm, y0, z0] + F[x_pp, y0, z0]) -
+                                                                       gd.idy2*(F[x_p0, ym1, z0] + F[x_p0, yp1, z0]) -
+                                                                       gd.idz2*(F[x_p0, y0, zm1] + F[x_p0, y0, zp1]))
+        
+        
+        # BC.imposePpBCs(Pp)
+        # Pp[0, :, :], Pp[-1, :, :] = Pp[1, :, :], Pp[-2, :, :]
+        # Pp[:, 0, :], Pp[:, -1, :] = Pp[:, 1, :], Pp[:, -2, :]
+        # Pp[:, :, 0], Pp[:, :, -1] = Pp[:, :, 1], Pp[:, :, -2]  
+        
+        if rank == 0:
+            F[:, -1, :] = F[:, -2, :]
+            F[:, :, -1] = F[:, :, -2]
 
-        maxErr = np.amax(np.abs(rho[x0, y0, z0] - ((
-                        (Pp[xm1, y0, z0] - 2.0*Pp[x0, y0, z0] + Pp[xp1, y0, z0])*gd.idx2 +
-                        (Pp[x0, ym1, z0] - 2.0*Pp[x0, y0, z0] + Pp[x0, yp1, z0])*gd.idy2 +
-                        (Pp[x0, y0, zm1] - 2.0*Pp[x0, y0, z0] + Pp[x0, y0, zp1])*gd.idz2))))
+            F[0, :, :] = F[1, :, :]
+            F[:, 0, :] = F[:, 1, :] 
+            F[:, :, 0] = F[:, :, 1]
+        
+        elif rank == 1:
+            F[:, 0, :] = F[:, 1, :] 
+            F[:, :, 0] = F[:, :, 1]
 
-        if (jCnt % 100 == 0):
-            print(jCnt, maxErr)
+            F[-1, :, :] = F[-2, :, :]
+            F[:, -1, :] = F[:, -2, :]
+            F[:, :, -1] = F[:, :, -2]
+
+        # if rank == 0:
+        #     print(F[1, :, 1])
+
+        
+
+        maxErr = np.amax(np.abs(rho[x_p0, y0, z0] - ((
+                        (F[x_pm, y0, z0] - 2.0*F[x_p0, y0, z0] + F[x_pp, y0, z0])*gd.idx2 +
+                        (F[x_p0, ym1, z0] - 2.0*F[x_p0, y0, z0] + F[x_p0, yp1, z0])*gd.idy2 +
+                        (F[x_p0, y0, zm1] - 2.0*F[x_p0, y0, z0] + F[x_p0, y0, zp1])*gd.idz2))))
+
+        totalMaxErr = comm.allreduce(maxErr, op=MPI.MIN)
+        # if (jCnt % 100 == 0):
+        #     print(jCnt, maxErr)
+
         jCnt += 1
 
-        if maxErr < para.PoissonTolerance:
-            # print(jCnt)
+        if totalMaxErr < para.PoissonTolerance:
             break
+
 
         if jCnt > para.maxiteration:
             print("ERROR: Jacobi Poisson solver not converging. Aborting")
             quit()
 
-    return Pp
+        
+
+        if rank == 0:
+            req = comm.irecv(source=1)
+            F[17, :, :] = req.wait()
+            req = comm.isend(F[16, :, :], dest=1)
+            req.wait()
+        
+        else:
+            req = comm.isend(F[17, :, :], dest=0)
+            req.wait()
+            req = comm.irecv(source=0)
+            F[16, :, :] = req.wait()
+        
+        comm.Barrier()
+
+        # if rank == 0:
+        #     print(f'rank:{rank}, {F[16, 2, 2]}')
+        #     ...
+        # else:
+        #     ...
+        #     # print(ym1.start, ym1.stop)
+        #     # print(F[17, ym1, 1])
+        #     print(f'rank:{rank}, {F[16, 2, 2]}')
+
+    return F
+
+# def Poisson_Jacobi(rho):
+#     jCnt = 0
+#     # Pp.fill(0.0)
+#     while True:
+
+#         Pp[x0, y0, z0] = (1.0/(-2.0*(gd.idx2 + gd.idy2 + gd.idz2))) * (rho[x0, y0, z0] -
+#                                                                        gd.idx2*(Pp[xm1, y0, z0] + Pp[xp1, y0, z0]) -
+#                                                                        gd.idy2*(Pp[x0, ym1, z0] + Pp[x0, yp1, z0]) -
+#                                                                        gd.idz2*(Pp[x0, y0, zm1] + Pp[x0, y0, zp1]))
+#         BC.imposePpBCs(Pp)
+
+#         maxErr = np.amax(np.abs(rho[x0, y0, z0] - ((
+#                         (Pp[xm1, y0, z0] - 2.0*Pp[x0, y0, z0] + Pp[xp1, y0, z0])*gd.idx2 +
+#                         (Pp[x0, ym1, z0] - 2.0*Pp[x0, y0, z0] + Pp[x0, yp1, z0])*gd.idy2 +
+#                         (Pp[x0, y0, zm1] - 2.0*Pp[x0, y0, z0] + Pp[x0, y0, zp1])*gd.idz2))))
+
+#         if (jCnt % 100 == 0):
+#             print(jCnt, maxErr)
+#         jCnt += 1
+
+#         if maxErr < para.PoissonTolerance:
+#             # print(jCnt)
+#             break
+
+#         if jCnt > para.maxiteration:
+#             print("ERROR: Jacobi Poisson solver not converging. Aborting")
+#             quit()
+
+#     return Pp
 
 
 def initMG():

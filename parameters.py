@@ -14,7 +14,7 @@ time = 0
 
 dt = 0.01
 
-tMax = 0.1
+tMax = 1.0
 
 Cn = 0.5 
 
