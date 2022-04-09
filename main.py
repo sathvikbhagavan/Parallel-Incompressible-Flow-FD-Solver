@@ -36,7 +36,7 @@ def main():
     # f.write("%.5e\t%.5e\t%.5e\t%.5e \n" %(time, energy, maxDiv, para.dt))
 
     # f.close()
-    if comm.Get_rank == 0:
+    if comm.Get_rank() == 0:
         print('# time, energy, Divergence')
         print("%.5f    %.2e    %.3e" %(time, energy, maxDiv))
 

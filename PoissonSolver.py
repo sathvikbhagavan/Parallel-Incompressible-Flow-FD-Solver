@@ -12,7 +12,6 @@ def Poisson_Jacobi(rho, F, comm, x_p0, x_pm, x_pp):
     rank = comm.Get_rank()
     
 
-    # Pp.fill(0.0)
     while True:
 
         F[x_p0, y0, z0] = (1.0/(-2.0*(gd.idx2 + gd.idy2 + gd.idz2))) * (rho[x_p0, y0, z0] -
@@ -20,12 +19,7 @@ def Poisson_Jacobi(rho, F, comm, x_p0, x_pm, x_pp):
                                                                        gd.idy2*(F[x_p0, ym1, z0] + F[x_p0, yp1, z0]) -
                                                                        gd.idz2*(F[x_p0, y0, zm1] + F[x_p0, y0, zp1]))
         
-        
-        # BC.imposePpBCs(Pp)
-        # Pp[0, :, :], Pp[-1, :, :] = Pp[1, :, :], Pp[-2, :, :]
-        # Pp[:, 0, :], Pp[:, -1, :] = Pp[:, 1, :], Pp[:, -2, :]
-        # Pp[:, :, 0], Pp[:, :, -1] = Pp[:, :, 1], Pp[:, :, -2]  
-        
+                
         if rank == 0:
             F[:, -1, :] = F[:, -2, :]
             F[:, :, -1] = F[:, :, -2]
@@ -42,22 +36,14 @@ def Poisson_Jacobi(rho, F, comm, x_p0, x_pm, x_pp):
             F[:, -1, :] = F[:, -2, :]
             F[:, :, -1] = F[:, :, -2]
 
-        # if rank == 0:
-        #     print(F[1, :, 1])
-
-        
-
         maxErr = np.amax(np.abs(rho[x_p0, y0, z0] - ((
                         (F[x_pm, y0, z0] - 2.0*F[x_p0, y0, z0] + F[x_pp, y0, z0])*gd.idx2 +
                         (F[x_p0, ym1, z0] - 2.0*F[x_p0, y0, z0] + F[x_p0, yp1, z0])*gd.idy2 +
                         (F[x_p0, y0, zm1] - 2.0*F[x_p0, y0, z0] + F[x_p0, y0, zp1])*gd.idz2))))
 
         totalMaxErr = comm.allreduce(maxErr, op=MPI.MIN)
-        # if (jCnt % 100 == 0):
-        #     print(jCnt, maxErr)
 
         jCnt += 1
-
         if totalMaxErr < para.PoissonTolerance:
             break
 
@@ -69,27 +55,14 @@ def Poisson_Jacobi(rho, F, comm, x_p0, x_pm, x_pp):
         
 
         if rank == 0:
-            req = comm.irecv(source=1)
-            F[17, :, :] = req.wait()
-            req = comm.isend(F[16, :, :], dest=1)
-            req.wait()
+            F[gd.Nx//2+1, :, :] = comm.recv()
+            comm.send(F[gd.Nx//2, :, :], dest=1)
         
         else:
-            req = comm.isend(F[17, :, :], dest=0)
-            req.wait()
-            req = comm.irecv(source=0)
-            F[16, :, :] = req.wait()
+            comm.send(F[gd.Nx//2+1, :, :], dest=0)
+            F[gd.Nx//2, :, :] = comm.recv(source=0)
         
         comm.Barrier()
-
-        # if rank == 0:
-        #     print(f'rank:{rank}, {F[16, 2, 2]}')
-        #     ...
-        # else:
-        #     ...
-        #     # print(ym1.start, ym1.stop)
-        #     # print(F[17, ym1, 1])
-        #     print(f'rank:{rank}, {F[16, 2, 2]}')
 
     return F
 
