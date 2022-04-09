@@ -31,6 +31,14 @@ def predictor(Field, F, rho, const, comm, x_p0, x_pm, x_pp):
             F[-1, :, :] = -F[-2, :, :]
             F[:, -1, :] = -F[:, -2, :]
             F[:, :, -1] = -F[:, :, -2]
+        
+        if rank == 0:
+            F[gd.Nx//2+1, :, :] = comm.recv()
+            comm.send(F[gd.Nx//2, :, :], dest=1)
+        
+        else:
+            comm.send(F[gd.Nx//2+1, :, :], dest=0)
+            F[gd.Nx//2, :, :] = comm.recv(source=0)
 
         maxErr = np.amax(np.abs(rho[x_p0, y0, z0] - (F[x_p0, y0, z0] - 0.5*const*para.dt*(
                             (F[x_pm, y0, z0] - 2.0*F[x_p0, y0, z0] + F[x_pp, y0, z0])*gd.idx2 +
@@ -43,14 +51,6 @@ def predictor(Field, F, rho, const, comm, x_p0, x_pm, x_pp):
 
         comm.Barrier()
         
-        if rank == 0:
-            F[gd.Nx//2+1, :, :] = comm.recv()
-            comm.send(F[gd.Nx//2, :, :], dest=1)
-        
-        else:
-            comm.send(F[gd.Nx//2+1, :, :], dest=0)
-            F[gd.Nx//2, :, :] = comm.recv(source=0)
-
         if totalMaxErr < para.FpTolerance:
             break
         
