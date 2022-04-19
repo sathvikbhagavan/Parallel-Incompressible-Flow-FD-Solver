@@ -10,9 +10,6 @@ class VectField:
         self.Vx = []
         self.Vy = []
         self.Vz = []
-        self.Vxold = []
-        self.Vyold = []
-        self.Vzold = []
         self.nlinX = []
         self.nlinY = []
         self.nlinZ = []
@@ -26,10 +23,6 @@ class VectField:
         self.Vx = Vx 
         self.Vz = Vz 
         self.Vy = Vy
-        
-        self.Vxold = Vx[:, :, :]
-        self.Vzold = Vz[:, :, :]
-        self.Vyold = Vy[:, :, :]
 
         return
 
@@ -37,9 +30,6 @@ class VectField:
         self.Vx = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
         self.Vy = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
         self.Vz = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
-        self.Vxold = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
-        self.Vyold = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
-        self.Vzold = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
         self.nlinX = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
         self.nlinY = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2])
         self.nlinZ = np.zeros([gd.Nx+2, gd.Ny+2, gd.Nz+2]) 
@@ -58,9 +48,6 @@ class VectField:
                         
 
     def nonlinear(self, x_p0, x_pm, x_pp):
-        # print('---')
-        # print(x_p0.start, x_p0.stop)
-        # print(self.nlinX[x_p0, y0, z0].shape)
         self.nlinX[x_p0, y0, z0] = self.Vx[x_p0, y0, z0]*df.dfx(self.Vx, x_pm, x_pp) + self.Vy[x_p0, y0, z0]*df.dfy(self.Vx, x_p0) + self.Vz[x_p0, y0, z0]*df.dfz(self.Vx, x_p0)
         self.nlinY[x_p0, y0, z0] = self.Vx[x_p0, y0, z0]*df.dfx(self.Vy, x_pm, x_pp) + self.Vy[x_p0, y0, z0]*df.dfy(self.Vy, x_p0) + self.Vz[x_p0, y0, z0]*df.dfz(self.Vy, x_p0)
         self.nlinZ[x_p0, y0, z0] = self.Vx[x_p0, y0, z0]*df.dfx(self.Vz, x_pm, x_pp) + self.Vy[x_p0, y0, z0]*df.dfy(self.Vz, x_p0) + self.Vz[x_p0, y0, z0]*df.dfz(self.Vz, x_p0)
