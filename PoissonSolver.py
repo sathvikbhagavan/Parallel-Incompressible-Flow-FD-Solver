@@ -12,7 +12,7 @@ def Poisson_Jacobi(rho, F, comm, x_p0, x_pm, x_pp):
     rank = comm.Get_rank()
     procs = comm.Get_size()
     
-    iterations = 1000
+    iterations = 200
     for i in range(iterations):
     # while True:
 
